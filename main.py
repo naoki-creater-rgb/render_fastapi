@@ -7,14 +7,8 @@ from pydantic import BaseModel
 app = FastAPI()
 
 omikuji_counters = {
-    "大吉": 0,
-    "中吉": 0,
-    "小吉": 0,
-    "吉": 0,
-    "末吉": 0,
-    "凶": 0,
-    "小凶": 0,
-    "大凶": 0
+    "大吉": 0, "中吉": 0, "小吉": 0, "吉": 0,
+    "末吉": 0, "凶": 0, "小凶": 0, "大凶": 0
 }
 
 class OmikujiCountRequest(BaseModel):
@@ -41,28 +35,21 @@ def omikuji():
         "小凶": "小凶。注意が必要な日です。慎重に行動しましょう。",
         "大凶": "大凶。最悪な日かもしれませんが、これ以上下がることはありません。"
     }
-
     lucky_result = random.choice(list(omikuji_list.keys()))
     summary = omikuji_list[lucky_result]
-
     return {"result": lucky_result, "summary": summary}
-
 
 @app.put("/omikuji/count")
 async def increment_omikuji_count(data: OmikujiCountRequest):
     global omikuji_counters
-    
     if data.result in omikuji_counters:
         omikuji_counters[data.result] += 1
-        return {"message": f"{data.result}のカウントを増やしました", "current_counters": omikuji_counters}
-    else:
-        return {"message": "無効な運勢データです"}
-
+        return {"status": "success", "counters": omikuji_counters}
+    return {"status": "error", "message": "無効な結果です"}
 
 @app.get("/omikuji/stats")
 async def get_omikuji_stats():
     return omikuji_counters
-
 
 @app.get("/index")
 def index():
@@ -104,28 +91,12 @@ def index():
                     cursor: pointer;
                     transition: background 0.2s;
                 }
-                button:hover {
-                    background-color: #4cae4c;
-                }
-                .stats-card {
-                    background: #fff;
-                    max-width: 450px;
-                }
-                /* 集計表示用のテーブルスタイル */
-                .stats-table {
-                    width: 100%;
-                    margin-top: 15px;
-                    border-collapse: collapse;
-                }
-                .stats-table th, .stats-table td {
-                    border: 1px solid #ddd;
-                    padding: 8px;
-                    text-align: center;
-                }
-                .stats-table th {
-                    background-color: #f2f2f2;
-                    font-weight: bold;
-                }
+                button:hover { background-color: #4cae4c; }
+                .stats-card { background: #fff; max-width: 450px; }
+                .stats-table { width: 100%; margin-top: 15px; border-collapse: collapse; }
+                .stats-table th, .stats-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+                .stats-table th { background-color: #f2f2f2; font-weight: bold; }
+                .count-num { font-weight: bold; color: #2e6da4; }
             </style>
         </head>
         <body>
@@ -138,39 +109,35 @@ def index():
             </div>
 
             <div class="card stats-card">
-                <h3>📊 これまでの集計結果（累積）</h3>
+                <h3>📊 これまでの出現回数（集計結果）</h3>
                 <table class="stats-table">
                     <thead>
-                        <tr>
-                            <th>大吉</th><th>中吉</th><th>小吉</th><th>吉</th>
-                        </tr>
+                        <tr><th>大吉</th><th>中吉</th><th>小吉</th><th>吉</th></tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td id="count-大吉">0</td>
-                            <td id="count-中吉">0</td>
-                            <td id="count-小吉">0</td>
-                            <td id="count-吉">0</td>
+                            <td id="count-大吉" class="count-num">0 回</td>
+                            <td id="count-中吉" class="count-num">0 回</td>
+                            <td id="count-小吉" class="count-num">0 回</td>
+                            <td id="count-吉" class="count-num">0 回</td>
                         </tr>
                     </tbody>
                     <thead>
-                        <tr>
-                            <th>末吉</th><th>凶</th><th>小凶</th><th>大凶</th>
-                        </tr>
+                        <tr><th>末吉</th><th>凶</th><th>小凶</th><th>大凶</th></tr>
                     </thead>
                     <tbody>
                         <tr>
-                            <td id="count-末吉">0</td>
-                            <td id="count-凶">0</td>
-                            <td id="count-小凶">0</td>
-                            <td id="count-大凶">0</td>
+                            <td id="count-末吉" class="count-num">0 回</td>
+                            <td id="count-凶" class="count-num">0 回</td>
+                            <td id="count-小凶" class="count-num">0 回</td>
+                            <td id="count-大凶" class="count-num">0 回</td>
                         </tr>
                     </tbody>
                 </table>
             </div>
 
             <script>
-                window.onload = async function() {
+                window.onload = function() {
                     updateStatsResult();
                 };
 
@@ -178,15 +145,14 @@ def index():
                     try {
                         const response = await fetch('/omikuji/stats');
                         const stats = await response.json();
-                        
                         for (const key in stats) {
-                            const element = document.getElementById(`count-${key}`);
+                            const element = document.getElementById('count-' + key);
                             if (element) {
                                 element.innerText = stats[key] + " 回";
                             }
                         }
                     } catch (error) {
-                        console.error('集計データの取得失敗:', error);
+                        console.error('集計データの取得エラー:', error);
                     }
                 }
 
@@ -204,15 +170,14 @@ def index():
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                result: data.result
+                                result: data.result  
                             })
                         });
                         
                         updateStatsResult();
 
                     } catch (error) {
-                        console.error('エラーが発生しました:', error);
-                        document.getElementById('omikuji-result').innerText = 'エラー発生';
+                        console.error('通信エラー:', error);
                     }
                 }
             </script>
