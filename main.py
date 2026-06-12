@@ -33,7 +33,7 @@ def omikuji():
     lucky_result = random.choice(list(omikuji_list.keys()))
     summary = omikuji_list[lucky_result]
 
-    return {"result": omikuji_list[random.randrange(10)], "summary": summary}
+    return {"result": lucky_result, "summary": summary}
 
 @app.get("/index")
 def index():
