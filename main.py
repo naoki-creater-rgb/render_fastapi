@@ -37,13 +37,73 @@ def omikuji():
 @app.get("/index")
 def index():
     html_content = """
+    <!DOCTYPE html>
     <html>
         <head>
-            <title>Some HTML in here</title>
+            <title>FastAPI おみくじ</title>
+            <style>
+                body {
+                    font-family: 'Helvetica Neue', Arial, sans-serif;
+                    text-align: center;
+                    background-color: #f7f7f7;
+                    padding-top: 50px;
+                }
+                .card {
+                    background: white;
+                    max-width: 400px;
+                    margin: 0 auto;
+                    padding: 30px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                }
+                h1 { color: #333; }
+                .result-box {
+                    font-size: 2.5rem;
+                    font-weight: bold;
+                    color: #d9534f;
+                    margin: 30px 0;
+                    min-height: 60px;
+                }
+                button {
+                    background-color: #5cb85c;
+                    color: white;
+                    border: none;
+                    padding: 10px 20px;
+                    font-size: 1.2rem;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                }
+                button:hover {
+                    background-color: #4cae4c;
+                }
+            </style>
         </head>
         <body>
-            <h1>Look ma! HTML!</h1>
+            <div class="card">
+                <h1>今日の運勢は？</h1>
+                <div id="omikuji-result" class="result-box">？？？</div>
+                <button onclick="drawOmikuji()">おみくじを引く</button>
+            </div>
+
+            <script>
+                async function drawOmikuji() {
+                    try {
+                        const response = await fetch('/omikuji');
+                        const data = await response.json();
+                        
+                        document.getElementById('omikuji-result').innerText = data.result;
+                    } catch (error) {
+                        console.error('エラーが発生しました:', error);
+                        document.getElementById('omikuji-result').innerText = 'エラー発生';
+                    }
+                }
+            </script>
         </body>
     </html>
     """
     return HTMLResponse(content=html_content, status_code=200)
+
+@app.post("/present")
+async def give_present(present):
+    return {"response": f"サーバです。メリークリスマス！ {present}ありがとう。お返しはキャンディーです。"}  # f文字列というPythonの機能を使っている
