@@ -19,20 +19,21 @@ def read_item(item_id: int, q: Optional[str] = None):
 
 @app.get("/omikuji")
 def omikuji():
-    omikuji_list = [
-        "大吉",
-        "中吉",
-        "小吉",
-        "吉",
-        "半吉",
-        "末吉",
-        "末小吉",
-        "凶",
-        "小凶",
-        "大凶"
-    ]
+    omikuji_list = {
+        "大吉":  "大吉！素晴らしい幸運が舞い込むでしょう。",
+        "中吉": "中吉！努力が実を結び、良い結果が待っています。",
+        "小吉": "小吉！ちょっとした幸運があなたの元にやってきます",
+        "吉": "吉！安定した幸せな日々が続くでしょう。",
+        "末吉": "末吉！努力が実り始め、良い方向に進む時期です。",
+        "凶": "凶。悪いことが起こるかもしれませんが、気を引き締めてください。",
+        "小凶": "小凶。注意が必要な日です。慎重に行動しましょう。",
+        "大凶": "凶。悪いことが起こるかもしれませんが、気を引き締めてください。"
+    }
 
-    return {"result": omikuji_list[random.randrange(10)]}
+    lucky_result = random.choice(list(omikuji_list.keys()))
+    summary = omikuji_list[lucky_result]
+
+    return {"result": omikuji_list[random.randrange(10)], "summary": summary}
 
 @app.get("/index")
 def index():
@@ -83,6 +84,7 @@ def index():
             <div class="card">
                 <h1>今日の運勢は？</h1>
                 <div id="omikuji-result" class="result-box">？？？</div>
+                <div id="omikuji-summary"></div>
                 <button onclick="drawOmikuji()">おみくじを引く</button>
             </div>
 
@@ -93,6 +95,7 @@ def index():
                         const data = await response.json();
                         
                         document.getElementById('omikuji-result').innerText = data.result;
+                        document.getElementById('omikuji-summary').innerText = data.summary;
                     } catch (error) {
                         console.error('エラーが発生しました:', error);
                         document.getElementById('omikuji-result').innerText = 'エラー発生';
