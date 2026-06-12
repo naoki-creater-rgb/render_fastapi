@@ -6,14 +6,19 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-latest_omikuji_result = {
-    "result": "まだ引かれていません",
-    "summary": ""
+omikuji_counters = {
+    "大吉": 0,
+    "中吉": 0,
+    "小吉": 0,
+    "吉": 0,
+    "末吉": 0,
+    "凶": 0,
+    "小凶": 0,
+    "大凶": 0
 }
 
-class OmikujiRecord(BaseModel):
+class OmikujiCountRequest(BaseModel):
     result: str
-    summary: str
 
 
 @app.get("/")
@@ -24,7 +29,6 @@ async def root():
 def read_item(item_id: int, q: Optional[str] = None):
     return {"item_id": item_id, "q": q}
 
-# おみくじをランダムに生成するエンドポイント
 @app.get("/omikuji")
 def omikuji():
     omikuji_list = {
@@ -44,17 +48,20 @@ def omikuji():
     return {"result": lucky_result, "summary": summary}
 
 
-@app.put("/omikuji/latest")
-async def update_latest_omikuji(data: OmikujiRecord):
-    global latest_omikuji_result
-    latest_omikuji_result["result"] = data.result
-    latest_omikuji_result["summary"] = data.summary
-    return {"message": "結果を記録しました", "recorded": latest_omikuji_result}
+@app.put("/omikuji/count")
+async def increment_omikuji_count(data: OmikujiCountRequest):
+    global omikuji_counters
+    
+    if data.result in omikuji_counters:
+        omikuji_counters[data.result] += 1
+        return {"message": f"{data.result}のカウントを増やしました", "current_counters": omikuji_counters}
+    else:
+        return {"message": "無効な運勢データです"}
 
 
-@app.get("/omikuji/latest")
-async def get_latest_omikuji():
-    return latest_omikuji_result
+@app.get("/omikuji/stats")
+async def get_omikuji_stats():
+    return omikuji_counters
 
 
 @app.get("/index")
@@ -63,7 +70,7 @@ def index():
     <!DOCTYPE html>
     <html>
         <head>
-            <title>FastAPI おみくじ履歴システム</title>
+            <title>FastAPI おみくじ集計システム</title>
             <style>
                 body {
                     font-family: 'Helvetica Neue', Arial, sans-serif;
@@ -100,79 +107,108 @@ def index():
                 button:hover {
                     background-color: #4cae4c;
                 }
-                .history-card {
-                    background: #e9ecef;
-                    border: 1px dashed #ccc;
+                .stats-card {
+                    background: #fff;
+                    max-width: 450px;
                 }
-                .history-result {
-                    font-size: 1.3rem;
+                /* 集計表示用のテーブルスタイル */
+                .stats-table {
+                    width: 100%;
+                    margin-top: 15px;
+                    border-collapse: collapse;
+                }
+                .stats-table th, .stats-table td {
+                    border: 1px solid #ddd;
+                    padding: 8px;
+                    text-align: center;
+                }
+                .stats-table th {
+                    background-color: #f2f2f2;
                     font-weight: bold;
-                    color: #2e6da4;
-                    margin-top: 10px;
                 }
             </style>
         </head>
         <body>
             <div class="card">
-                <h1>今日の運勢は？</h1>
+                <h1>🔮 今日の運勢は？</h1>
                 <div id="omikuji-result" class="result-box">？？？</div>
                 <div id="omikuji-summary"></div>
                 <br>
-                <button onclick="drawAndRecordOmikuji()">おみくじを引く</button>
+                <button onclick="drawAndCountOmikuji()">おみくじを引く</button>
             </div>
 
-            <div class="card history-card">
-                <h3>サーバーに記録された最新データ</h3>
-                <div id="server-recorded-result" class="history-result">確認中...</div>
-                <div id="server-recorded-summary" style="font-size: 0.9rem; color: #555;"></div>
+            <div class="card stats-card">
+                <h3>📊 これまでの集計結果（累積）</h3>
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>大吉</th><th>中吉</th><th>小吉</th><th>吉</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="count-大吉">0</td>
+                            <td id="count-中吉">0</td>
+                            <td id="count-小吉">0</td>
+                            <td id="count-吉">0</td>
+                        </tr>
+                    </tbody>
+                    <thead>
+                        <tr>
+                            <th>末吉</th><th>凶</th><th>小凶</th><th>大凶</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="count-末吉">0</td>
+                            <td id="count-凶">0</td>
+                            <td id="count-小凶">0</td>
+                            <td id="count-大凶">0</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <script>
-                // ページが読み込まれた時に、サーバーに保存されている現在の最新結果を表示する
                 window.onload = async function() {
-                    fetchLatestRecord();
+                    updateStatsResult();
                 };
 
-                // サーバーから最新の記録を取得して画面に表示する関数
-                async function fetchLatestRecord() {
+                async function updateStatsResult() {
                     try {
-                        const response = await fetch('/omikuji/latest');
-                        const data = await response.json();
-                        document.getElementById('server-recorded-result').innerText = data.result;
-                        document.getElementById('server-recorded-summary').innerText = data.summary;
+                        const response = await fetch('/omikuji/stats');
+                        const stats = await response.json();
+                        
+                        for (const key in stats) {
+                            const element = document.getElementById(`count-${key}`);
+                            if (element) {
+                                element.innerText = stats[key] + " 回";
+                            }
+                        }
                     } catch (error) {
-                        console.error('記録の取得に失敗:', error);
+                        console.error('集計データの取得失敗:', error);
                     }
                 }
 
-                // ★おみくじを引き、その結果をPUTでサーバーに送る関数
-                async function drawAndRecordOmikuji() {
+                async function drawAndCountOmikuji() {
                     try {
-                        // 1. まず普通におみくじを引く (GET)
                         const response = await fetch('/omikuji');
                         const data = await response.json();
                         
-                        // 画面上のメイン表示を更新
                         document.getElementById('omikuji-result').innerText = data.result;
                         document.getElementById('omikuji-summary').innerText = data.summary;
 
-                        // 2. 出た結果をPUTメソッドでサーバーに送り、記録を更新する (PUT)
-                        const putResponse = await fetch('/omikuji/latest', {
+                        await fetch('/omikuji/count', {
                             method: 'PUT',
                             headers: {
                                 'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({
-                                result: data.result,
-                                summary: data.summary
+                                result: data.result
                             })
                         });
                         
-                        const putData = await putResponse.json();
-                        console.log('サーバーの応答:', putData.message);
-
-                        // 3. サーバー側の記録が更新されたので、下の「最新データ表示」も更新する
-                        fetchLatestRecord();
+                        updateStatsResult();
 
                     } catch (error) {
                         console.error('エラーが発生しました:', error);
